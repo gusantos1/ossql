@@ -1,0 +1,1 @@
+<h1>Bem-vindo ao OSSql 🥋</h1><p>Selecione um exercício no menu ao lado para começar.</p>

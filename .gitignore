@@ -1,0 +1,23 @@
+# VSCode settings
+.vscode/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pkl
+
+# Virtual environments
+.env/
+.venv/
+venv/
+ENV/
+
+static/questions/__pycache__/
+
+# Logs
+*.log
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
