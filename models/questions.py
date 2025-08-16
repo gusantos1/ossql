@@ -31,5 +31,5 @@ class QuestionBank:
 
 question_bank = QuestionBank()
 # question_bank.add_question('Apresentação', 'static\questions\home.md')
-question_bank.add_question('Exercício 1', 'static\questions\question1.md', r'static\results\question1.sql', ['SELECT'], 'Selecione todas as colunas da tabela')
-question_bank.add_question('Exercício 2', 'static\questions\question2.md', r'static\results\question2.sql', ['SELECT', 'WHERE'], 'Selecione as colunas da tabela aplicando um filtro')
+question_bank.add_question('Exercício 1', 'static/questions/question1.md', 'static/results/question1.sql', ['SELECT'], 'Selecione todas as colunas da tabela')
+question_bank.add_question('Exercício 2', 'static/questions/question2.md', 'static/results/question2.sql', ['SELECT', 'WHERE'], 'Selecione as colunas da tabela aplicando um filtro')

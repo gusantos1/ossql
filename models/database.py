@@ -1,7 +1,7 @@
 import sqlite3
 import duckdb
 import pandas as pd
-from interface import SqlDatabaseAdapter
+from .interface import SqlDatabaseAdapter
 
 
 class SQLiteAdapter(SqlDatabaseAdapter):
@@ -25,5 +25,8 @@ class DuckDBAdapter(SqlDatabaseAdapter):
         self.con.execute(f"CREATE OR REPLACE TABLE {table_name} AS SELECT * FROM df")
 
     def select_query(self, query: str) -> pd.DataFrame:
-        result = self.con.execute(query).fetchdf()
-        return result
+        try:
+            result = self.con.execute(query).fetchdf()
+            return result
+        except:
+            return pd.DataFrame()  # Return empty DataFrame on error
