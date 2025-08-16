@@ -5,19 +5,26 @@ from streamlit_ace import st_ace
 from models.questions import question_bank, Question
 from models.database import SQLiteAdapter, DuckDBAdapter
 
+# --- FUNÇÕES CALLBACK E DE LÓGICA (sem alterações) ---
 
 def select_question(question_id: str):
     """Callback para atualizar o exercício selecionado e limpar resultados antigos."""
     st.session_state.question_selected = question_id
-    # Limpa o estado da questão anterior para evitar mostrar resultados antigos
     st.session_state.pop('result_df', None)
     st.session_state.pop('query_error', None)
     st.session_state.pop('correct_question', None)
 
+def update_database():
+    """Callback para trocar o banco de dados e limpar o estado."""
+    db_map = {'DuckDB': st.session_state.duckdb_db, 'SQLite': st.session_state.sqlite_db}
+    st.session_state.database_selected = db_map[st.session_state.db_choice]
+    st.session_state.pop('result_df', None)
+    st.session_state.pop('query_error', None)
+    st.session_state.pop('correct_question', None)
+    st.toast(f"Banco de dados alterado para {st.session_state.db_choice}")
+
 def result_execution():
     """Função para exibir o resultado da query, erros ou mensagens de status."""
-    # Esta função agora apenas lê o st.session_state, sem modificá-lo.
-    # A lógica de exibição é clara e hierárquica.
     if 'query_error' in st.session_state:
         st.error(st.session_state.query_error)
     elif 'result_df' in st.session_state:
@@ -29,8 +36,7 @@ def result_execution():
     else:
         st.info("O resultado da sua query aparecerá aqui.")
 
-
-# --- INICIALIZAÇÃO DA APLICAÇÃO ---
+# --- INICIALIZAÇÃO DA APLICAÇÃO (sem alterações) ---
 if 'application_started' not in st.session_state:
     st.set_page_config(
         page_title="OSSql - Aprenda SQL com Jiu-jitsu",
@@ -42,14 +48,17 @@ if 'application_started' not in st.session_state:
     st.session_state.correct_answers = 1
     st.session_state.questions_keys = list(question_bank.questions.keys())
     st.session_state.query_validator = lambda query, mandatory_list: all([word in query for word in mandatory_list])
+    
     st.session_state.sqlite_db = SQLiteAdapter()
     st.session_state.duckdb_db = DuckDBAdapter()
-    database = (st.session_state.sqlite_db, st.session_state.duckdb_db)
-    for db in database:
+    for db in (st.session_state.sqlite_db, st.session_state.duckdb_db):
         db.create_table('data/atletas.csv', 'atletas')
+    
+    st.session_state.db_choice = 'DuckDB'
     st.session_state.database_selected = st.session_state.duckdb_db
 
 # --- SIDEBAR (MENU DE EXERCÍCIOS) ---
+# A sidebar agora conterá apenas a navegação dos exercícios.
 st.sidebar.title("Menu exercícios")
 for index in range(0, st.session_state.correct_answers + 1):
     question_id = st.session_state.questions_keys[index]
@@ -62,9 +71,46 @@ for index in range(0, st.session_state.correct_answers + 1):
     )
 
 # --- LAYOUT PRINCIPAL ---
+
+# NOVO: Layout para o canto superior direito
+# Criamos colunas no topo da página para posicionar o popover
+top_cols = st.columns([5, 1]) # Divide o espaço em 6 partes, 5 para o título e 1 para o botão
+
+with top_cols[1]: # Usando a coluna da direita
+    with st.popover("Gerenciar Progresso", use_container_width=True):
+        st.markdown("##### Salvar/Carregar")
+        
+        # LÓGICA PARA SALVAR (movida para dentro do popover)
+        progress_data = {'correct_answers': st.session_state.correct_answers}
+        pickled_progress = pickle.dumps(progress_data)
+        st.download_button(
+            label="💾 Salvar Progresso",
+            data=pickled_progress,
+            file_name="progresso_osql.pkl",
+            mime="application/octet-stream",
+            use_container_width=True
+        )
+
+        # LÓGICA PARA CARREGAR (movida para dentro do popover)
+        uploaded_file = st.file_uploader(
+            "Carregar progresso (.pkl)", type="pkl", label_visibility="collapsed"
+        )
+        if uploaded_file is not None:
+            try:
+                loaded_data = pickle.load(uploaded_file)
+                if 'correct_answers' in loaded_data:
+                    st.session_state.correct_answers = loaded_data['correct_answers']
+                    st.toast("Sucesso! Seu progresso foi restaurado. ✅", icon="🎉")
+                    st.rerun() 
+                else:
+                    st.error("Arquivo inválido.")
+            except Exception as e:
+                st.error(f"Erro ao carregar.")
+
+
+# Layout principal com as duas colunas de conteúdo
 col1, col2 = st.columns(2)
 
-# Coluna da Esquerda: Enunciado e Resultado
 with col1:
     question: Question = question_bank.questions.get(st.session_state.question_selected)
     st.markdown(question.text, unsafe_allow_html=True)
@@ -73,13 +119,20 @@ with col1:
         with st.expander("Precisa de uma dica?"):
             st.info(question.hint)
         st.markdown("### Resultado da Execução")
-        # O placeholder é preenchido pela função que agora apenas exibe o estado
         with st.container():
             result_execution()
 
-# Coluna da Direita: Editor de SQL
 with col2:
     if st.session_state.question_selected != 'Apresentação':
+        
+        # ALTERADO: Seletor de Banco de Dados com st.selectbox
+        st.selectbox(
+            "Banco de Dados:",
+            ('DuckDB', 'SQLite'),
+            key='db_choice',
+            on_change=update_database,
+        )
+        
         st.markdown("### Editor de Código SQL")
         query = st_ace(
             placeholder="-- Digite seu código SQL aqui...",
@@ -88,11 +141,9 @@ with col2:
             keybinding="vscode",
             font_size=14,
             key=f"ace_editor_{st.session_state.question_selected}",
-            auto_update=False
-        )
-
+            auto_update=False)
+        
         if st.button("Executar Query", use_container_width=True, type="primary"):
-            # 1. Limpa o estado anterior antes de uma nova execução
             st.session_state.pop('result_df', None)
             st.session_state.pop('query_error', None)
             st.session_state.pop('correct_question', None)
@@ -106,7 +157,6 @@ with col2:
                     client_result = st.session_state.database_selected.select_query(query)
                     question_result = st.session_state.database_selected.select_query(question.query_result)
                     
-                    # 2. Define o novo estado com base no resultado
                     st.session_state.result_df = client_result
                     if client_result.equals(question_result):
                         st.session_state.correct_question = True
@@ -115,5 +165,4 @@ with col2:
                 except Exception as e:
                     st.session_state.query_error = f"Ocorreu um erro na execução da query: {e}"
             
-            # 3. Força a re-renderização para exibir o novo estado imediatamente
             st.rerun()
